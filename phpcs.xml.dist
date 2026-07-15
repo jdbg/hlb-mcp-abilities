@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<ruleset name="HLB MCP Abilities">
+	<description>Human Made coding standards for the HLB MCP Abilities plugin.</description>
+
+	<!-- Scan the plugin, ignoring dependencies and non-code. -->
+	<file>.</file>
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/><!-- Show sniff codes and progress. -->
+
+	<!-- Human Made coding standards. -->
+	<rule ref="HM">
+		<!-- Every file guards with `defined( 'ABSPATH' ) || exit;` next to a class
+		     declaration; this standard WordPress security pattern is not a real
+		     mixed-responsibility defect. -->
+		<exclude name="PSR1.Files.SideEffects"/>
+	</rule>
+
+	<!-- Check PHP cross-version compatibility against the plugin's real minimum. -->
+	<config name="testVersion" value="7.4-"/>
+
+	<!-- Deprecation checks against the plugin's minimum supported WordPress. -->
+	<config name="minimum_wp_version" value="6.9"/>
+
+	<!-- Enforce the plugin text domain. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="hlb-mcp-abilities"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

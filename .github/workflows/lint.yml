@@ -1,0 +1,29 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  phpcs:
+    name: PHPCS (Human Made coding standards)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # Human Made coding standards require PHP >= 8.2 for the tooling itself;
+          # phpcs.xml.dist checks the plugin's code for PHP 7.4+ compatibility.
+          php-version: '8.3'
+          coverage: none
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run PHPCS
+        run: composer lint

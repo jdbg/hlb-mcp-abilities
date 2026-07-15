@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "evrotrust": {
+      "type": "http",
+      "url": "https://mysite.com/evrotrust/wp-json/hlb_mysite_com_evrotrust/mcp",
+      "headers": {
+        "Authorization": "Basic ${HLB_MCP_TOKEN}"
+      }
+    }
+  }
+}

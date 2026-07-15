@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mysite": {
+      "type": "http",
+      "url": "https://mysite.com/wp-json/hlb_mysite_com/mcp",
+      "headers": {
+        "Authorization": "Basic ${HLB_MCP_TOKEN}"
+      }
+    }
+  }
+}

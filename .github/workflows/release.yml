@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build dist zip
+        run: composer run build
+
+      - name: Attach zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/hlb-mcp-abilities.zip
+          generate_release_notes: true

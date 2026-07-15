@@ -1,0 +1,28 @@
+{
+	"name": "hlebarov/hlb-mcp-abilities",
+	"description": "Expose a curated, admin-controlled set of WordPress Abilities to the MCP Adapter.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"authors": [
+		{
+			"name": "Hlebarov.com",
+			"homepage": "https://hlebarov.com/"
+		}
+	],
+	"require": {
+		"php": ">=7.4"
+	},
+	"require-dev": {
+		"humanmade/coding-standards": "^2.3"
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	},
+	"scripts": {
+		"lint": "phpcs",
+		"lint:fix": "phpcbf",
+		"build": "mkdir -p dist && git archive --format=zip --prefix=hlb-mcp-abilities/ -o dist/hlb-mcp-abilities.zip HEAD"
+	}
+}

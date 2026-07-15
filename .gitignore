@@ -1,0 +1,19 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Dependencies / build
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+
+# Logs
+*.log
+
+# Build artifacts
+/dist/
+*.zip
