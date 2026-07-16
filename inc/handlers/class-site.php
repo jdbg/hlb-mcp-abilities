@@ -69,17 +69,25 @@ class Site {
 	 * @return array
 	 */
 	public static function get_site_info( array $input ) {
-		return [
+		$data = [
 			'name'         => get_bloginfo( 'name' ),
 			'description'  => get_bloginfo( 'description' ),
 			'url'          => home_url(),
-			'admin_email'  => get_bloginfo( 'admin_email' ),
-			'wp_version'   => get_bloginfo( 'version' ),
 			'language'     => get_bloginfo( 'language' ),
 			'timezone'     => wp_timezone_string(),
 			'is_multisite' => is_multisite(),
 			'blog_id'      => get_current_blog_id(),
 		];
+
+		// Admin email (PII) and the exact WP version (vulnerability fingerprinting)
+		// are only exposed to callers who can manage the site, even though this
+		// ability's default capability is the much lower `read`.
+		if ( current_user_can( 'manage_options' ) ) {
+			$data['admin_email'] = get_bloginfo( 'admin_email' );
+			$data['wp_version']  = get_bloginfo( 'version' );
+		}
+
+		return $data;
 	}
 
 	/**

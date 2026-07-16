@@ -163,7 +163,7 @@ class Dependency {
 			<p>
 				<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="display:inline;">
 					<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>" />
-					<input type="hidden" name="redirect_to" value="<?php echo esc_attr( ( is_ssl() ? 'https://' : 'http://' ) . wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) . wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ); ?>" />
+					<input type="hidden" name="redirect_to" value="<?php echo esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ); ?>" />
 					<?php wp_nonce_field( $action ); ?>
 					<button type="submit" class="button button-primary"><?php echo esc_html( $label ); ?></button>
 					<a href="https://github.com/WordPress/mcp-adapter" target="_blank" rel="noopener" class="button-link" style="margin-left:.5em;"><?php esc_html_e( 'View plugin', 'hlb-mcp-abilities' ); ?></a>

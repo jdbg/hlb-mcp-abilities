@@ -70,13 +70,20 @@ class Media {
 		if ( ! $url || ! wp_http_validate_url( $url ) ) {
 			return new WP_Error( 'hlb_mcp_invalid_input', __( 'A valid URL is required.', 'hlb-mcp-abilities' ), [ 'status' => 400 ] );
 		}
+		if ( ! self::host_allowed( $url ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'This host is not allowed for media uploads.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+
+		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
+		if ( $post_id && ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot attach media to this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
 
 		require_once ABSPATH . 'wp-admin/includes/media.php';
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 
-		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
-		$desc    = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : null;
+		$desc = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : null;
 
 		$attachment_id = media_sideload_image( $url, $post_id, $desc, 'id' );
 		if ( is_wp_error( $attachment_id ) ) {
@@ -91,5 +98,30 @@ class Media {
 			'id'  => (int) $attachment_id,
 			'url' => wp_get_attachment_url( $attachment_id ),
 		];
+	}
+
+	/**
+	 * Whether a URL's host passes the (optional) upload allow-list.
+	 *
+	 * `wp_http_validate_url()` already blocks loopback and private-range hosts;
+	 * this is an additional, opt-in restriction for sites that want to limit
+	 * sideloading to known origins. Empty (the default) means unrestricted.
+	 *
+	 * @param string $url Source URL.
+	 * @return bool
+	 */
+	private static function host_allowed( $url ) {
+		/**
+		 * Filter the hostnames `upload-media` may sideload from.
+		 *
+		 * @param string[] $hosts Allowed hostnames, e.g. [ 'cdn.example.com' ]. Empty allows any host.
+		 */
+		$allowed = apply_filters( 'hlb_mcp_upload_media_allowed_hosts', [] );
+		if ( empty( $allowed ) ) {
+			return true;
+		}
+
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+		return is_string( $host ) && in_array( strtolower( $host ), array_map( 'strtolower', $allowed ), true );
 	}
 }

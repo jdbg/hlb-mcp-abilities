@@ -102,6 +102,7 @@ class Content {
 			'post_status'    => $status,
 			'posts_per_page' => self::per_page( $input ),
 			'paged'          => self::page( $input ),
+			'perm'           => 'readable',
 		];
 		if ( ! empty( $input['author'] ) ) {
 			$args['author'] = (int) $input['author'];
@@ -198,12 +199,26 @@ class Content {
 	 * @return array|WP_Error
 	 */
 	public static function create_post( array $input ) {
+		$type     = isset( $input['post_type'] ) ? sanitize_key( $input['post_type'] ) : 'post';
+		$type_obj = get_post_type_object( $type );
+		if ( ! $type_obj ) {
+			return new WP_Error( 'hlb_mcp_invalid_input', __( 'Unknown post type.', 'hlb-mcp-abilities' ), [ 'status' => 400 ] );
+		}
+		if ( ! current_user_can( $type_obj->cap->create_posts ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot create this type of content.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+
+		$status = isset( $input['status'] ) ? sanitize_key( $input['status'] ) : 'draft';
+		if ( in_array( $status, [ 'publish', 'future', 'private' ], true ) && ! current_user_can( $type_obj->cap->publish_posts ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot publish this type of content.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+
 		$postarr = [
 			'post_title'   => isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : '',
 			'post_content' => isset( $input['content'] ) ? wp_kses_post( $input['content'] ) : '',
 			'post_excerpt' => isset( $input['excerpt'] ) ? sanitize_textarea_field( $input['excerpt'] ) : '',
-			'post_status'  => isset( $input['status'] ) ? sanitize_key( $input['status'] ) : 'draft',
-			'post_type'    => isset( $input['post_type'] ) ? sanitize_key( $input['post_type'] ) : 'post',
+			'post_status'  => $status,
+			'post_type'    => $type,
 		];
 
 		$id = wp_insert_post( $postarr, true );
@@ -220,8 +235,9 @@ class Content {
 	 * @return array|WP_Error
 	 */
 	public static function update_post( array $input ) {
-		$id = isset( $input['id'] ) ? (int) $input['id'] : 0;
-		if ( ! $id || ! get_post( $id ) ) {
+		$id   = isset( $input['id'] ) ? (int) $input['id'] : 0;
+		$post = $id ? get_post( $id ) : null;
+		if ( ! $post ) {
 			return new WP_Error( 'hlb_mcp_not_found', __( 'Post not found.', 'hlb-mcp-abilities' ), [ 'status' => 404 ] );
 		}
 		if ( ! current_user_can( 'edit_post', $id ) ) {
@@ -239,7 +255,14 @@ class Content {
 			$postarr['post_excerpt'] = sanitize_textarea_field( $input['excerpt'] );
 		}
 		if ( isset( $input['status'] ) ) {
-			$postarr['post_status'] = sanitize_key( $input['status'] );
+			$status = sanitize_key( $input['status'] );
+			if ( in_array( $status, [ 'publish', 'future', 'private' ], true ) ) {
+				$type_obj = get_post_type_object( $post->post_type );
+				if ( ! $type_obj || ! current_user_can( $type_obj->cap->publish_posts ) ) {
+					return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot publish this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+				}
+			}
+			$postarr['post_status'] = $status;
 		}
 
 		$result = wp_update_post( $postarr, true );
@@ -258,11 +281,21 @@ class Content {
 	public static function set_post_status( array $input ) {
 		$id     = isset( $input['id'] ) ? (int) $input['id'] : 0;
 		$status = isset( $input['status'] ) ? sanitize_key( $input['status'] ) : '';
-		if ( ! $id || ! get_post( $id ) ) {
+		$post   = $id ? get_post( $id ) : null;
+		if ( ! $post ) {
 			return new WP_Error( 'hlb_mcp_not_found', __( 'Post not found.', 'hlb-mcp-abilities' ), [ 'status' => 404 ] );
 		}
 		if ( ! current_user_can( 'edit_post', $id ) ) {
 			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot edit this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+		if ( in_array( $status, [ 'publish', 'future', 'private' ], true ) ) {
+			$type_obj = get_post_type_object( $post->post_type );
+			if ( ! $type_obj || ! current_user_can( $type_obj->cap->publish_posts ) ) {
+				return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot publish this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+			}
+		}
+		if ( 'trash' === $status && ! current_user_can( 'delete_post', $id ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot trash this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
 		}
 
 		if ( 'trash' === $status ) {
@@ -330,6 +363,10 @@ class Content {
 		if ( ! current_user_can( 'edit_post', $id ) ) {
 			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot edit this post.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
 		}
+		$tax_obj = get_taxonomy( $taxonomy );
+		if ( ! current_user_can( $tax_obj->cap->assign_terms ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot assign terms in this taxonomy.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
 
 		$result = wp_set_object_terms( $id, $terms, $taxonomy, $append );
 		if ( is_wp_error( $result ) ) {
@@ -353,6 +390,10 @@ class Content {
 		$name     = isset( $input['name'] ) ? sanitize_text_field( $input['name'] ) : '';
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return new WP_Error( 'hlb_mcp_invalid_input', __( 'Unknown taxonomy.', 'hlb-mcp-abilities' ), [ 'status' => 400 ] );
+		}
+		$tax_obj = get_taxonomy( $taxonomy );
+		if ( ! current_user_can( $tax_obj->cap->manage_terms ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot manage terms in this taxonomy.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
 		}
 
 		$args = [];
