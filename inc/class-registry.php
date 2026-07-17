@@ -13,7 +13,9 @@ namespace HLB\MCP;
 use HLB\MCP\Handlers\Comments;
 use HLB\MCP\Handlers\Content;
 use HLB\MCP\Handlers\Media;
+use HLB\MCP\Handlers\Patterns;
 use HLB\MCP\Handlers\Site;
+use HLB\MCP\Handlers\Templates;
 use HLB\MCP\Handlers\Users;
 use HLB\MCP\Handlers\WooCommerce;
 
@@ -43,6 +45,7 @@ class Registry {
 			'media'         => __( 'Media', 'hlb-mcp-abilities' ),
 			'comments'      => __( 'Comments', 'hlb-mcp-abilities' ),
 			'users'         => __( 'Users', 'hlb-mcp-abilities' ),
+			'site-editor'   => __( 'Site Editor', 'hlb-mcp-abilities' ),
 			'site'          => __( 'Site & diagnostics', 'hlb-mcp-abilities' ),
 			'woocommerce'   => __( 'WooCommerce', 'hlb-mcp-abilities' ),
 		];
@@ -486,6 +489,290 @@ class Registry {
 							'default' => 1,
 							'minimum' => 1,
 						],
+					],
+				],
+			],
+
+			/* ------------------------------------------------------------ Site Editor */
+
+			'hlb/list-templates' => [
+				'label'       => __( 'List templates', 'hlb-mcp-abilities' ),
+				'description' => __( 'List block templates or template parts for the active theme.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_theme_options',
+				'default'     => true,
+				'condition'   => [ Templates::class, 'block_theme_active' ],
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ Templates::class, 'list_templates' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'properties' => [
+						'template_type' => $string + [
+							'default' => 'wp_template',
+							'enum' => [ 'wp_template', 'wp_template_part' ],
+						],
+						'area'          => $string + [ 'description' => __( 'Filter template parts by area, e.g. header, footer.', 'hlb-mcp-abilities' ) ],
+					],
+				],
+			],
+
+			'hlb/get-template' => [
+				'label'       => __( 'Get template', 'hlb-mcp-abilities' ),
+				'description' => __( 'Retrieve a single template or template part, including its block markup.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_theme_options',
+				'default'     => true,
+				'condition'   => [ Templates::class, 'block_theme_active' ],
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ Templates::class, 'get_template' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'            => $string + [ 'description' => __( 'Template id, e.g. themeslug//slug.', 'hlb-mcp-abilities' ) ],
+						'template_type' => $string + [
+							'default' => 'wp_template',
+							'enum' => [ 'wp_template', 'wp_template_part' ],
+						],
+					],
+				],
+			],
+
+			'hlb/create-template' => [
+				'label'       => __( 'Create template', 'hlb-mcp-abilities' ),
+				'description' => __( 'Create a new custom template or template part.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_theme_options',
+				'default'     => false,
+				'condition'   => [ Templates::class, 'block_theme_active' ],
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => false,
+					'idempotent' => false,
+				],
+				'handler'     => [ Templates::class, 'create_template' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'slug' ],
+					'properties' => [
+						'slug'          => $string,
+						'title'         => $string,
+						'content'       => $string + [ 'description' => __( 'Block markup.', 'hlb-mcp-abilities' ) ],
+						'description'   => $string,
+						'template_type' => $string + [
+							'default' => 'wp_template',
+							'enum' => [ 'wp_template', 'wp_template_part' ],
+						],
+						'area'          => $string + [ 'description' => __( 'Template-part area, e.g. header, footer.', 'hlb-mcp-abilities' ) ],
+					],
+				],
+			],
+
+			'hlb/update-template' => [
+				'label'       => __( 'Update template', 'hlb-mcp-abilities' ),
+				'description' => __( 'Update the title, content, or description of a template or template part.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_theme_options',
+				'default'     => false,
+				'condition'   => [ Templates::class, 'block_theme_active' ],
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => false,
+					'idempotent' => false,
+				],
+				'handler'     => [ Templates::class, 'update_template' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'            => $string + [ 'description' => __( 'Template id, e.g. themeslug//slug.', 'hlb-mcp-abilities' ) ],
+						'template_type' => $string + [
+							'default' => 'wp_template',
+							'enum' => [ 'wp_template', 'wp_template_part' ],
+						],
+						'title'         => $string,
+						'content'       => $string + [ 'description' => __( 'Block markup.', 'hlb-mcp-abilities' ) ],
+						'description'   => $string,
+					],
+				],
+			],
+
+			'hlb/delete-template' => [
+				'label'       => __( 'Delete template', 'hlb-mcp-abilities' ),
+				'description' => __( 'Delete a custom template, or revert a customized theme template back to its theme file.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_theme_options',
+				'default'     => false,
+				'condition'   => [ Templates::class, 'block_theme_active' ],
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => true,
+					'idempotent' => false,
+				],
+				'handler'     => [ Templates::class, 'delete_template' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'            => $string + [ 'description' => __( 'Template id, e.g. themeslug//slug.', 'hlb-mcp-abilities' ) ],
+						'template_type' => $string + [
+							'default' => 'wp_template',
+							'enum' => [ 'wp_template', 'wp_template_part' ],
+						],
+					],
+				],
+			],
+
+			'hlb/list-patterns' => [
+				'label'       => __( 'List patterns', 'hlb-mcp-abilities' ),
+				'description' => __( 'List user-created patterns (reusable blocks).', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => true,
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ Patterns::class, 'list_patterns' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'properties' => [
+						'search'   => $string,
+						'category' => $string + [ 'description' => __( 'Filter by pattern category slug.', 'hlb-mcp-abilities' ) ],
+						'per_page' => $integer + [
+							'default' => 10,
+							'minimum' => 1,
+							'maximum' => 100,
+						],
+						'page'     => $integer + [
+							'default' => 1,
+							'minimum' => 1,
+						],
+					],
+				],
+			],
+
+			'hlb/get-pattern' => [
+				'label'       => __( 'Get pattern', 'hlb-mcp-abilities' ),
+				'description' => __( 'Retrieve a single user-created pattern, including its block markup.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => true,
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ Patterns::class, 'get_pattern' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [ 'id' => $integer ],
+				],
+			],
+
+			'hlb/create-pattern' => [
+				'label'       => __( 'Create pattern', 'hlb-mcp-abilities' ),
+				'description' => __( 'Create a new user pattern (reusable block).', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => false,
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => false,
+					'idempotent' => false,
+				],
+				'handler'     => [ Patterns::class, 'create_pattern' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'title', 'content' ],
+					'properties' => [
+						'title'    => $string,
+						'content'  => $string + [ 'description' => __( 'Block markup.', 'hlb-mcp-abilities' ) ],
+						'category' => $string + [ 'description' => __( 'Pattern category name or slug.', 'hlb-mcp-abilities' ) ],
+						'synced'   => $boolean + [
+							'default' => true,
+							'description' => __( 'False creates an unsynced pattern (edits in one place do not propagate).', 'hlb-mcp-abilities' ),
+						],
+					],
+				],
+			],
+
+			'hlb/update-pattern' => [
+				'label'       => __( 'Update pattern', 'hlb-mcp-abilities' ),
+				'description' => __( 'Update the title, content, category, or sync status of a user pattern.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => false,
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => false,
+					'idempotent' => false,
+				],
+				'handler'     => [ Patterns::class, 'update_pattern' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'       => $integer,
+						'title'    => $string,
+						'content'  => $string + [ 'description' => __( 'Block markup.', 'hlb-mcp-abilities' ) ],
+						'category' => $string + [ 'description' => __( 'Pattern category name or slug.', 'hlb-mcp-abilities' ) ],
+						'synced'   => $boolean,
+					],
+				],
+			],
+
+			'hlb/delete-pattern' => [
+				'label'       => __( 'Delete pattern', 'hlb-mcp-abilities' ),
+				'description' => __( 'Trash a user pattern, or permanently delete it when force is true.', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => false,
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => true,
+					'idempotent' => false,
+				],
+				'handler'     => [ Patterns::class, 'delete_pattern' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'    => $integer,
+						'force' => $boolean + [
+							'default' => false,
+							'description' => __( 'Permanently delete instead of trashing.', 'hlb-mcp-abilities' ),
+						],
+					],
+				],
+			],
+
+			'hlb/list-registered-patterns' => [
+				'label'       => __( 'List registered patterns', 'hlb-mcp-abilities' ),
+				'description' => __( 'List code-registered theme/plugin block patterns (read-only; not user-editable posts).', 'hlb-mcp-abilities' ),
+				'category'    => 'site-editor',
+				'capability'  => 'edit_posts',
+				'default'     => true,
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ Patterns::class, 'list_registered_patterns' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'properties' => [
+						'category' => $string + [ 'description' => __( 'Filter by pattern category slug.', 'hlb-mcp-abilities' ) ],
 					],
 				],
 			],
