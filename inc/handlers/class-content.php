@@ -10,6 +10,7 @@
 
 namespace HLB\MCP\Handlers;
 
+use HLB\MCP\Gatekeeper;
 use WP_Error;
 use WP_Query;
 
@@ -37,7 +38,7 @@ class Content {
 			'date'      => $post->post_date_gmt,
 			'modified'  => $post->post_modified_gmt,
 			'excerpt'   => get_the_excerpt( $post ),
-			'link'      => get_permalink( $post ),
+			'link'      => Gatekeeper::link( get_permalink( $post ) ),
 		];
 	}
 

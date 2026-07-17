@@ -7,6 +7,7 @@
 
 namespace HLB\MCP\Handlers;
 
+use HLB\MCP\Gatekeeper;
 use HLB\MCP\Settings;
 use WP_Error;
 
@@ -45,11 +46,18 @@ class Site {
 
 		$items = [];
 		foreach ( get_sites( [ 'number' => 500 ] ) as $blog ) {
-			$id      = (int) $blog->blog_id;
+			$id = (int) $blog->blog_id;
+
+			// Gatekeeper's settings are per-blog, so tag with switch_to_blog()
+			// rather than the main site's own token (or lack of one).
+			switch_to_blog( $id );
+			$url = Gatekeeper::link( get_home_url( $id ) );
+			restore_current_blog();
+
 			$items[] = [
 				'blog_id' => $id,
 				'name'    => get_blog_option( $id, 'blogname' ),
-				'url'     => get_home_url( $id ),
+				'url'     => $url,
 				'path'    => trim( $blog->path, '/' ),
 				'domain'  => $blog->domain,
 				'is_main' => (int) get_main_site_id() === $id,
@@ -72,7 +80,7 @@ class Site {
 		$data = [
 			'name'         => get_bloginfo( 'name' ),
 			'description'  => get_bloginfo( 'description' ),
-			'url'          => home_url(),
+			'url'          => Gatekeeper::link( home_url() ),
 			'language'     => get_bloginfo( 'language' ),
 			'timezone'     => wp_timezone_string(),
 			'is_multisite' => is_multisite(),

@@ -7,6 +7,7 @@
 
 namespace HLB\MCP\Handlers;
 
+use HLB\MCP\Gatekeeper;
 use WP_Error;
 
 defined( 'ABSPATH' ) || exit;
@@ -59,7 +60,7 @@ class WooCommerce {
 				'sku'         => $product->get_sku(),
 				'price'       => $product->get_price(),
 				'stock_status' => $product->get_stock_status(),
-				'permalink'   => $product->get_permalink(),
+				'permalink'   => Gatekeeper::link( $product->get_permalink() ),
 			];
 		}
 

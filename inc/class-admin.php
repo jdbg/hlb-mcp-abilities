@@ -341,6 +341,16 @@ class Admin {
 						</p>
 					</td>
 				</tr>
+				<?php if ( \HLB\MCP\Gatekeeper::active() ) : ?>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Frontend Gatekeeper', 'hlb-mcp-abilities' ); ?></th>
+						<td>
+							<p class="description">
+								<?php esc_html_e( 'Detected. If its gate is enabled, permalinks and site URLs returned by abilities are automatically tagged with its access parameter so agents can follow them without hitting its 404 gate.', 'hlb-mcp-abilities' ); ?>
+							</p>
+						</td>
+					</tr>
+				<?php endif; ?>
 			</table>
 		</div>
 		<?php
