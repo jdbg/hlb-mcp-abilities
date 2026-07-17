@@ -43,6 +43,44 @@ class Patterns {
 	}
 
 	/**
+	 * Assign a pattern category, allowing privileged users to create a new one.
+	 *
+	 * WordPress creates missing terms when wp_set_object_terms() receives a string. Check the
+	 * taxonomy's capabilities first so pattern authors cannot create categories
+	 * merely by assigning one to a pattern.
+	 *
+	 * @param int    $post_id  Pattern post ID.
+	 * @param string $category Pattern category name or slug.
+	 * @return true|WP_Error
+	 */
+	private static function set_pattern_category( $post_id, $category ) {
+		$taxonomy = get_taxonomy( 'wp_pattern_category' );
+		$category = sanitize_text_field( $category );
+
+		if ( ! $taxonomy ) {
+			return new WP_Error( 'hlb_mcp_failed', __( 'Pattern categories are unavailable.', 'hlb-mcp-abilities' ), [ 'status' => 500 ] );
+		}
+		if ( ! current_user_can( $taxonomy->cap->assign_terms ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot assign pattern categories.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+		if ( '' === $category ) {
+			$result = wp_set_object_terms( $post_id, [], 'wp_pattern_category' );
+			return is_wp_error( $result ) ? $result : true;
+		}
+
+		$term = get_term_by( 'slug', sanitize_title( $category ), 'wp_pattern_category' );
+		if ( ! $term ) {
+			$term = get_term_by( 'name', $category, 'wp_pattern_category' );
+		}
+		if ( ! $term && ! current_user_can( $taxonomy->cap->manage_terms ) ) {
+			return new WP_Error( 'hlb_mcp_forbidden', __( 'You cannot create pattern categories.', 'hlb-mcp-abilities' ), [ 'status' => 403 ] );
+		}
+
+		$result = wp_set_object_terms( $post_id, $term ? (int) $term->term_id : $category, 'wp_pattern_category' );
+		return is_wp_error( $result ) ? $result : true;
+	}
+
+	/**
 	 * List user-created patterns.
 	 *
 	 * @param array $input Ability input.
@@ -129,7 +167,11 @@ class Patterns {
 			update_post_meta( $id, 'wp_pattern_sync_status', 'unsynced' );
 		}
 		if ( ! empty( $input['category'] ) ) {
-			wp_set_object_terms( $id, sanitize_text_field( $input['category'] ), 'wp_pattern_category' );
+			$result = self::set_pattern_category( $id, $input['category'] );
+			if ( is_wp_error( $result ) ) {
+				wp_delete_post( $id, true );
+				return $result;
+			}
 		}
 
 		return self::shape_pattern( get_post( $id ) );
@@ -173,7 +215,10 @@ class Patterns {
 			}
 		}
 		if ( isset( $input['category'] ) ) {
-			wp_set_object_terms( $id, sanitize_text_field( $input['category'] ), 'wp_pattern_category' );
+			$result = self::set_pattern_category( $id, $input['category'] );
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
 		}
 
 		return self::shape_pattern( get_post( $id ) );
