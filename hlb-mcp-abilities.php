@@ -3,7 +3,7 @@
  * Plugin Name:       HLB MCP Abilities
  * Plugin URI:        https://hlebarov.com/
  * Description:       Exposes a curated, admin-controlled set of WordPress Abilities to the MCP Adapter so third-party tools and AI agents can interact with the site over MCP. Multisite-ready with network defaults and per-subsite overrides.
- * Version:           1.2.0
+ * Version:           1.3.0
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            Hlebarov.com
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'HLB_MCP_VERSION', '1.2.0' );
+define( 'HLB_MCP_VERSION', '1.3.0' );
 define( 'HLB_MCP_FILE', __FILE__ );
 define( 'HLB_MCP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'HLB_MCP_URL', plugin_dir_url( __FILE__ ) );
