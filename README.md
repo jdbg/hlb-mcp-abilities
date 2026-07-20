@@ -74,6 +74,7 @@ or contains personal data).
 | Site & diagnostics | `hlb/get-site-info`, `hlb/get-active-theme`, `hlb/list-active-plugins` | ✅ |
 | Network *(network mode only)* | `hlb/list-sites` | ✅ |
 | WooCommerce *(when active)* | `hlb/wc-list-products` ✅ · `hlb/wc-get-order` ⬜ | |
+| SEOPress *(when active)* | `hlb/seopress-get-meta` ✅ · `hlb/seopress-update-meta` ⬜ | |
 
 Add your own via the `hlb_mcp_abilities` filter.
 

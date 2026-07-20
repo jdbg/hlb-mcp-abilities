@@ -14,6 +14,7 @@ use HLB\MCP\Handlers\Comments;
 use HLB\MCP\Handlers\Content;
 use HLB\MCP\Handlers\Media;
 use HLB\MCP\Handlers\Patterns;
+use HLB\MCP\Handlers\SEOPress;
 use HLB\MCP\Handlers\Site;
 use HLB\MCP\Handlers\Templates;
 use HLB\MCP\Handlers\Users;
@@ -48,6 +49,7 @@ class Registry {
 			'site-editor'   => __( 'Site Editor', 'hlb-mcp-abilities' ),
 			'site'          => __( 'Site & diagnostics', 'hlb-mcp-abilities' ),
 			'woocommerce'   => __( 'WooCommerce', 'hlb-mcp-abilities' ),
+			'seopress'      => __( 'SEOPress', 'hlb-mcp-abilities' ),
 		];
 	}
 
@@ -902,6 +904,71 @@ class Registry {
 					'type'       => 'object',
 					'required'   => [ 'id' ],
 					'properties' => [ 'id' => $integer ],
+				],
+			],
+
+			/* -------------------------------------------------------------- SEOPress */
+
+			'hlb/seopress-get-meta' => [
+				'label'       => __( 'Get SEO meta (SEOPress)', 'hlb-mcp-abilities' ),
+				'description' => __( 'Retrieve a post\'s SEOPress title, description, robots, and social preview meta.', 'hlb-mcp-abilities' ),
+				'category'    => 'seopress',
+				'capability'  => 'read',
+				'default'     => true,
+				'condition'   => [ SEOPress::class, 'is_active' ],
+				'annotations' => [
+					'readonly' => true,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ SEOPress::class, 'get_meta' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [ 'id' => $integer + [ 'description' => __( 'Post ID.', 'hlb-mcp-abilities' ) ] ],
+				],
+			],
+
+			'hlb/seopress-update-meta' => [
+				'label'       => __( 'Update SEO meta (SEOPress)', 'hlb-mcp-abilities' ),
+				'description' => __( 'Update a post\'s SEOPress title, description, robots, and social preview meta.', 'hlb-mcp-abilities' ),
+				'category'    => 'seopress',
+				'capability'  => 'edit_posts',
+				'default'     => false,
+				'condition'   => [ SEOPress::class, 'is_active' ],
+				'annotations' => [
+					'readonly' => false,
+					'destructive' => false,
+					'idempotent' => true,
+				],
+				'handler'     => [ SEOPress::class, 'update_meta' ],
+				'input_schema' => [
+					'type'       => 'object',
+					'required'   => [ 'id' ],
+					'properties' => [
+						'id'                  => $integer + [ 'description' => __( 'Post ID.', 'hlb-mcp-abilities' ) ],
+						'title'               => $string + [ 'description' => __( 'SEO title (Titles & Metas tab).', 'hlb-mcp-abilities' ) ],
+						'description'         => $string + [ 'description' => __( 'Meta description (Titles & Metas tab).', 'hlb-mcp-abilities' ) ],
+						'canonical_url'       => $string + [
+							'format' => 'uri',
+							'description' => __( 'Custom canonical URL.', 'hlb-mcp-abilities' ),
+						],
+						'noindex'             => $boolean + [ 'description' => __( 'Exclude this post from search engine indexing.', 'hlb-mcp-abilities' ) ],
+						'nofollow'            => $boolean + [ 'description' => __( 'Tell search engines not to follow links on this post.', 'hlb-mcp-abilities' ) ],
+						'focus_keyword'       => $string + [ 'description' => __( 'Primary target keyword for content analysis.', 'hlb-mcp-abilities' ) ],
+						'og_title'            => $string + [ 'description' => __( 'Facebook/Open Graph title.', 'hlb-mcp-abilities' ) ],
+						'og_description'      => $string + [ 'description' => __( 'Facebook/Open Graph description.', 'hlb-mcp-abilities' ) ],
+						'og_image_url'        => $string + [
+							'format' => 'uri',
+							'description' => __( 'Facebook/Open Graph image URL.', 'hlb-mcp-abilities' ),
+						],
+						'twitter_title'       => $string + [ 'description' => __( 'Twitter card title.', 'hlb-mcp-abilities' ) ],
+						'twitter_description' => $string + [ 'description' => __( 'Twitter card description.', 'hlb-mcp-abilities' ) ],
+						'twitter_image_url'   => $string + [
+							'format' => 'uri',
+							'description' => __( 'Twitter card image URL.', 'hlb-mcp-abilities' ),
+						],
+					],
 				],
 			],
 		];
