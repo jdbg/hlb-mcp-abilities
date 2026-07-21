@@ -12,6 +12,7 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       hlb-mcp-abilities
  * Network:           false
+ * Update URI:        https://github.com/jdbg/hlb-mcp-abilities
  *
  * @package HLB\MCP
  */
