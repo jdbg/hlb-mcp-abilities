@@ -1,0 +1,123 @@
+/**
+ * HLB MCP Abilities — settings screen styles.
+ *
+ * Loaded only on this plugin's own admin pages (see Admin::enqueue_assets()).
+ */
+
+.hlb-mcp-card {
+	max-width: none;
+}
+
+.hlb-mcp-card__title {
+	margin-top: 0;
+}
+
+.hlb-mcp-error-text {
+	color: #b32d2e;
+}
+
+.hlb-mcp-search {
+	margin: 1em 0;
+	max-width: 32em;
+}
+
+.hlb-mcp-search input[type="search"] {
+	width: 100%;
+}
+
+.hlb-mcp-tablist {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.hlb-mcp-tab {
+	appearance: none;
+	background: none;
+	border: 1px solid transparent;
+	border-bottom: none;
+	cursor: pointer;
+	font: inherit;
+	margin-left: 0.5em;
+}
+
+.hlb-mcp-tab:first-child {
+	margin-left: 0;
+}
+
+.hlb-mcp-tab:focus-visible {
+	box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2271b1;
+	outline: 2px solid transparent;
+}
+
+.hlb-mcp-tab.hlb-mcp-tab-dimmed {
+	opacity: 0.45;
+}
+
+.hlb-mcp-tab-count {
+	background: rgba(0, 0, 0, 0.08);
+	border-radius: 10px;
+	display: inline-block;
+	font-size: 11px;
+	margin-left: 0.4em;
+	min-width: 1.4em;
+	padding: 0.05em 0.5em;
+	text-align: center;
+}
+
+.hlb-mcp-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-top: none;
+	padding: 0 1em;
+}
+
+.hlb-mcp-panel[hidden] {
+	display: none;
+}
+
+.hlb-mcp-table {
+	margin-top: 0;
+}
+
+.hlb-mcp-row[hidden] {
+	display: none;
+}
+
+.hlb-mcp-badge {
+	align-items: center;
+	border-radius: 3px;
+	display: inline-flex;
+	font-size: 11px;
+	font-weight: 600;
+	gap: 0.25em;
+	margin-left: 0.5em;
+	padding: 0.1em 0.5em;
+	text-transform: uppercase;
+	vertical-align: middle;
+}
+
+.hlb-mcp-badge .dashicons {
+	font-size: 14px;
+	height: 14px;
+	width: 14px;
+}
+
+.hlb-mcp-badge--readonly {
+	background: rgba(58, 125, 68, 0.12);
+	color: #3a7d44;
+}
+
+.hlb-mcp-badge--writes {
+	background: rgba(153, 104, 0, 0.12);
+	color: #996800;
+}
+
+.hlb-mcp-badge--destructive {
+	background: rgba(179, 45, 46, 0.12);
+	color: #b32d2e;
+}
+
+.hlb-mcp-id {
+	margin-left: 0.5em;
+	opacity: 0.6;
+}

@@ -14,11 +14,10 @@ defined( 'ABSPATH' ) || exit;
  */
 class Admin {
 
-	const MENU_SLUG    = 'hlb-mcp-abilities';
-	const NONCE_NET    = 'hlb_mcp_save_network';
-	const NONCE_SITE   = 'hlb_mcp_save_site';
-	const ACTION_NET   = 'hlb_mcp_save_network';
-	const ACTION_SITE  = 'hlb_mcp_save_site';
+	const MENU_SLUG         = 'hlb-mcp-abilities';
+	const NONCE_NET         = 'hlb_mcp_save_network';
+	const ACTION_NET        = 'hlb_mcp_save_network';
+	const SITE_OPTION_GROUP = 'hlb_mcp_site_group';
 
 	/**
 	 * Ability registry.
@@ -33,6 +32,20 @@ class Admin {
 	 * @var Settings
 	 */
 	private $settings;
+
+	/**
+	 * Hook suffix of the per-site settings page, once registered.
+	 *
+	 * @var string
+	 */
+	private $site_page_hook = '';
+
+	/**
+	 * Hook suffix of the network settings page, once registered.
+	 *
+	 * @var string
+	 */
+	private $network_page_hook = '';
 
 	/**
 	 * Constructor.
@@ -52,7 +65,8 @@ class Admin {
 	 */
 	public function hooks() {
 		add_action( 'admin_menu', [ $this, 'register_site_page' ] );
-		add_action( 'admin_post_' . self::ACTION_SITE, [ $this, 'handle_save_site' ] );
+		add_action( 'admin_init', [ $this, 'register_settings' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
 		if ( is_multisite() ) {
 			add_action( 'network_admin_menu', [ $this, 'register_network_page' ] );
@@ -70,7 +84,7 @@ class Admin {
 	 * @return void
 	 */
 	public function register_site_page() {
-		add_options_page(
+		$this->site_page_hook = add_options_page(
 			__( 'HLB MCP Abilities', 'hlb-mcp-abilities' ),
 			__( 'HLB MCP Abilities', 'hlb-mcp-abilities' ),
 			'manage_options',
@@ -85,13 +99,76 @@ class Admin {
 	 * @return void
 	 */
 	public function register_network_page() {
-		add_submenu_page(
+		$this->network_page_hook = add_submenu_page(
 			'settings.php',
 			__( 'HLB MCP Abilities', 'hlb-mcp-abilities' ),
 			__( 'HLB MCP Abilities', 'hlb-mcp-abilities' ),
 			'manage_network_options',
 			self::MENU_SLUG,
 			[ $this, 'render_network_page' ]
+		);
+	}
+
+	/**
+	 * Register the per-site option with the Settings API.
+	 *
+	 * Runs on every admin request (not just our own screens) because `options.php`
+	 * itself fires `admin_init` when processing the save — the option must already be
+	 * registered by then or it is silently rejected.
+	 *
+	 * @return void
+	 */
+	public function register_settings() {
+		register_setting(
+			self::SITE_OPTION_GROUP,
+			Settings::SITE_OPTION,
+			[
+				'type'              => 'array',
+				'sanitize_callback' => [ $this, 'sanitize_site_option' ],
+				'default'           => [
+					'override' => false,
+					'enabled'  => [],
+				],
+				'show_in_rest'      => false,
+			]
+		);
+
+		if ( ! is_multisite() ) {
+			return;
+		}
+
+		add_settings_section( 'hlb_mcp_site_override', '', '__return_false', self::MENU_SLUG );
+		add_settings_field(
+			'hlb_mcp_site_override_field',
+			__( 'Network defaults', 'hlb-mcp-abilities' ),
+			[ $this, 'render_override_field' ],
+			self::MENU_SLUG,
+			'hlb_mcp_site_override'
+		);
+	}
+
+	/**
+	 * Enqueue the settings screen's stylesheet and script, only on our own pages.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		$our_hooks = array_filter( [ $this->site_page_hook, $this->network_page_hook ] );
+		if ( ! in_array( $hook_suffix, $our_hooks, true ) ) {
+			return;
+		}
+
+		wp_enqueue_style( 'hlb-mcp-admin', HLB_MCP_URL . 'assets/admin.css', [ 'dashicons' ], HLB_MCP_VERSION );
+		wp_enqueue_script( 'hlb-mcp-admin', HLB_MCP_URL . 'assets/admin.js', [], HLB_MCP_VERSION, true );
+		wp_localize_script(
+			'hlb-mcp-admin',
+			'hlbMcpAdminL10n',
+			[
+				/* translators: 1: number of matching abilities, 2: total number of abilities, 3: search term. */
+				'searchStatus'  => __( '%1$d of %2$d abilities match "%3$s".', 'hlb-mcp-abilities' ),
+				'searchCleared' => __( 'Showing all abilities.', 'hlb-mcp-abilities' ),
+			]
 		);
 	}
 
@@ -146,7 +223,7 @@ class Admin {
 					</tr>
 				</table>
 
-				<?php $this->render_fields( $enabled, false ); ?>
+				<?php $this->render_ability_tabs( $enabled, false ); ?>
 				<?php submit_button( __( 'Save network defaults', 'hlb-mcp-abilities' ) ); ?>
 			</form>
 		</div>
@@ -178,68 +255,59 @@ class Admin {
 		<div class="wrap">
 			<h1><?php esc_html_e( 'HLB MCP Abilities', 'hlb-mcp-abilities' ); ?></h1>
 			<?php $this->render_connection_box(); ?>
-			<?php $this->maybe_updated_notice(); ?>
+			<?php settings_errors(); ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION_SITE ); ?>" />
-				<?php wp_nonce_field( self::NONCE_SITE ); ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
+				<?php settings_fields( self::SITE_OPTION_GROUP ); ?>
 
 				<?php if ( $multisite ) : ?>
-					<table class="form-table" role="presentation">
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Network defaults', 'hlb-mcp-abilities' ); ?></th>
-							<td>
-								<label>
-									<input type="checkbox" id="hlb-mcp-override" name="override" value="1" <?php checked( $override ); ?> />
-									<?php esc_html_e( 'Override network defaults for this site', 'hlb-mcp-abilities' ); ?>
-								</label>
-								<p class="description">
-									<?php esc_html_e( 'When unchecked, this site inherits the network defaults shown below (read-only).', 'hlb-mcp-abilities' ); ?>
-								</p>
-							</td>
-						</tr>
-					</table>
+					<?php do_settings_sections( self::MENU_SLUG ); ?>
 				<?php endif; ?>
 
 				<div id="hlb-mcp-fields">
-					<?php $this->render_fields( $checked, $disabled_fields ); ?>
+					<?php $this->render_ability_tabs( $checked, $disabled_fields, Settings::SITE_OPTION . '[enabled][]' ); ?>
 				</div>
 
 				<?php submit_button( __( 'Save changes', 'hlb-mcp-abilities' ) ); ?>
 			</form>
 		</div>
-
-		<?php if ( $multisite ) : ?>
-		<script>
-		( function () {
-			var toggle = document.getElementById( 'hlb-mcp-override' );
-			var fields = document.getElementById( 'hlb-mcp-fields' );
-			if ( ! toggle || ! fields ) { return; }
-			function sync() {
-				var boxes = fields.querySelectorAll( 'input[type=checkbox]' );
-				for ( var i = 0; i < boxes.length; i++ ) { boxes[ i ].disabled = ! toggle.checked; }
-				fields.style.opacity = toggle.checked ? '1' : '0.55';
-			}
-			toggle.addEventListener( 'change', sync );
-			sync();
-		} )();
-		</script>
-		<?php endif; ?>
 		<?php
 	}
 
 	/**
-	 * Render the grouped ability checkboxes.
+	 * Field callback for the "override network defaults" checkbox.
 	 *
-	 * @param string[] $checked  Ability ids that should be checked.
-	 * @param bool     $disabled Whether inputs are disabled (inheriting).
+	 * The surrounding table row is rendered by do_settings_sections().
+	 *
 	 * @return void
 	 */
-	private function render_fields( array $checked, $disabled ) {
+	public function render_override_field() {
+		$override = $this->settings->is_override();
+		?>
+		<label>
+			<input type="checkbox" id="hlb-mcp-override" name="<?php echo esc_attr( Settings::SITE_OPTION ); ?>[override]" value="1" <?php checked( $override ); ?> />
+			<?php esc_html_e( 'Override network defaults for this site', 'hlb-mcp-abilities' ); ?>
+		</label>
+		<p class="description">
+			<?php esc_html_e( 'When unchecked, this site inherits the network defaults shown below (read-only).', 'hlb-mcp-abilities' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the searchable, tabbed ability checkboxes.
+	 *
+	 * @param string[] $checked    Ability ids that should be checked.
+	 * @param bool     $disabled   Whether inputs are disabled (inheriting).
+	 * @param string   $field_name The checkbox `name` attribute (array notation).
+	 * @return void
+	 */
+	private function render_ability_tabs( array $checked, $disabled, $field_name = 'hlb_abilities[]' ) {
 		$categories = $this->registry->categories();
 		$available  = $this->registry->available();
 		$checked    = array_flip( $checked );
 
+		$groups = [];
 		foreach ( $categories as $cat_id => $cat_label ) {
 			$in_cat = array_filter(
 				$available,
@@ -247,45 +315,96 @@ class Admin {
 					return $def['category'] === $cat_id;
 				}
 			);
-			if ( empty( $in_cat ) ) {
-				continue;
+			if ( ! empty( $in_cat ) ) {
+				$groups[ $cat_id ] = [
+					'label'     => $cat_label,
+					'abilities' => $in_cat,
+				];
 			}
-			?>
-			<h2 class="title"><?php echo esc_html( $cat_label ); ?></h2>
-			<table class="form-table" role="presentation">
-				<tbody>
-				<?php foreach ( $in_cat as $id => $def ) : ?>
-					<tr>
-						<th scope="row" style="width:22em;">
-							<label for="hlb-<?php echo esc_attr( sanitize_html_class( $id ) ); ?>">
-								<?php echo esc_html( $def['label'] ); ?>
-							</label>
-							<?php echo $this->badge( $def ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
-						</th>
-						<td>
-							<label for="hlb-<?php echo esc_attr( sanitize_html_class( $id ) ); ?>">
-								<input
-									type="checkbox"
-									id="hlb-<?php echo esc_attr( sanitize_html_class( $id ) ); ?>"
-									name="hlb_abilities[]"
-									value="<?php echo esc_attr( $id ); ?>"
-									<?php checked( isset( $checked[ $id ] ) ); ?>
-									<?php disabled( $disabled ); ?>
-								/>
-								<span class="description"><?php echo esc_html( $def['description'] ); ?></span>
-							</label>
-							<code style="margin-left:.5em;opacity:.6;"><?php echo esc_html( $id ); ?></code>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-			<?php
 		}
+
+		if ( empty( $groups ) ) {
+			return;
+		}
+
+		$active = true;
+		?>
+		<div class="hlb-mcp-tabs">
+			<p class="hlb-mcp-search">
+				<label for="hlb-mcp-search-input" class="screen-reader-text"><?php esc_html_e( 'Search abilities', 'hlb-mcp-abilities' ); ?></label>
+				<input
+					type="search"
+					id="hlb-mcp-search-input"
+					class="regular-text"
+					autocomplete="off"
+					placeholder="<?php esc_attr_e( 'Search by name, id, or description…', 'hlb-mcp-abilities' ); ?>"
+				/>
+				<span class="hlb-mcp-search-status screen-reader-text" role="status" aria-live="polite"></span>
+			</p>
+
+			<div class="nav-tab-wrapper hlb-mcp-tablist" role="tablist" aria-label="<?php esc_attr_e( 'Ability categories', 'hlb-mcp-abilities' ); ?>">
+				<?php foreach ( $groups as $cat_id => $group ) : ?>
+					<?php $slug = sanitize_html_class( $cat_id ); ?>
+					<button
+						type="button"
+						id="hlb-tab-<?php echo esc_attr( $slug ); ?>"
+						class="nav-tab hlb-mcp-tab<?php echo $active ? ' nav-tab-active' : ''; ?>"
+						role="tab"
+						aria-selected="<?php echo $active ? 'true' : 'false'; ?>"
+						aria-controls="hlb-panel-<?php echo esc_attr( $slug ); ?>"
+						tabindex="<?php echo $active ? '0' : '-1'; ?>"
+						data-category="<?php echo esc_attr( $cat_id ); ?>"
+					>
+						<?php echo esc_html( $group['label'] ); ?>
+						<span class="hlb-mcp-tab-count"><?php echo count( $group['abilities'] ); ?></span>
+					</button>
+					<?php $active = false; ?>
+				<?php endforeach; ?>
+			</div>
+
+			<?php foreach ( $groups as $cat_id => $group ) : ?>
+				<?php $slug = sanitize_html_class( $cat_id ); ?>
+				<div id="hlb-panel-<?php echo esc_attr( $slug ); ?>" role="tabpanel" aria-labelledby="hlb-tab-<?php echo esc_attr( $slug ); ?>" tabindex="0" class="hlb-mcp-panel">
+					<table class="form-table hlb-mcp-table" role="presentation">
+						<tbody>
+						<?php foreach ( $group['abilities'] as $id => $def ) : ?>
+							<?php
+							$field_id = 'hlb-' . sanitize_html_class( $id );
+							$search   = strtolower( $def['label'] . ' ' . $id . ' ' . $def['description'] );
+							?>
+							<tr class="hlb-mcp-row" data-hlb-search="<?php echo esc_attr( $search ); ?>">
+								<th scope="row">
+									<label for="<?php echo esc_attr( $field_id ); ?>">
+										<?php echo esc_html( $def['label'] ); ?>
+									</label>
+									<?php echo $this->badge( $def ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
+								</th>
+								<td>
+									<label for="<?php echo esc_attr( $field_id ); ?>">
+										<input
+											type="checkbox"
+											id="<?php echo esc_attr( $field_id ); ?>"
+											name="<?php echo esc_attr( $field_name ); ?>"
+											value="<?php echo esc_attr( $id ); ?>"
+											<?php checked( isset( $checked[ $id ] ) ); ?>
+											<?php disabled( $disabled ); ?>
+										/>
+										<span class="description"><?php echo esc_html( $def['description'] ); ?></span>
+									</label>
+									<code class="hlb-mcp-id"><?php echo esc_html( $id ); ?></code>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+			<?php endforeach; ?>
+		</div>
+		<?php
 	}
 
 	/**
-	 * A small readonly/destructive badge for an ability.
+	 * A small readonly/destructive/writes badge for an ability.
 	 *
 	 * @param array $def Ability definition.
 	 * @return string Escaped HTML.
@@ -293,12 +412,29 @@ class Admin {
 	private function badge( array $def ) {
 		$ann = isset( $def['annotations'] ) ? $def['annotations'] : [];
 		if ( ! empty( $ann['destructive'] ) ) {
-			return ' <span style="color:#b32d2e;font-size:11px;">' . esc_html__( 'destructive', 'hlb-mcp-abilities' ) . '</span>';
+			return $this->badge_markup( 'destructive', 'dashicons-warning', __( 'destructive', 'hlb-mcp-abilities' ) );
 		}
 		if ( ! empty( $ann['readonly'] ) ) {
-			return ' <span style="color:#3a7d44;font-size:11px;">' . esc_html__( 'read-only', 'hlb-mcp-abilities' ) . '</span>';
+			return $this->badge_markup( 'readonly', 'dashicons-visibility', __( 'read-only', 'hlb-mcp-abilities' ) );
 		}
-		return ' <span style="color:#996800;font-size:11px;">' . esc_html__( 'writes', 'hlb-mcp-abilities' ) . '</span>';
+		return $this->badge_markup( 'writes', 'dashicons-edit', __( 'writes', 'hlb-mcp-abilities' ) );
+	}
+
+	/**
+	 * Build a single badge's markup.
+	 *
+	 * @param string $modifier BEM modifier (readonly|writes|destructive).
+	 * @param string $dashicon Dashicon class.
+	 * @param string $label    Visible label.
+	 * @return string Escaped HTML.
+	 */
+	private function badge_markup( $modifier, $dashicon, $label ) {
+		return sprintf(
+			' <span class="hlb-mcp-badge hlb-mcp-badge--%1$s"><span class="dashicons %2$s" aria-hidden="true"></span>%3$s</span>',
+			esc_attr( $modifier ),
+			esc_attr( $dashicon ),
+			esc_html( $label )
+		);
 	}
 
 	/**
@@ -309,8 +445,8 @@ class Admin {
 	private function render_connection_box() {
 		$adapter_ok = class_exists( '\\WP\\MCP\\Core\\McpAdapter' );
 		?>
-		<div class="card" style="max-width:none;">
-			<h2 style="margin-top:0;"><?php esc_html_e( 'MCP connection', 'hlb-mcp-abilities' ); ?></h2>
+		<div class="card hlb-mcp-card">
+			<h2 class="hlb-mcp-card__title"><?php esc_html_e( 'MCP connection', 'hlb-mcp-abilities' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Server name', 'hlb-mcp-abilities' ); ?></th>
@@ -321,7 +457,7 @@ class Admin {
 					<td>
 						<code><?php echo esc_html( $this->settings->endpoint_url() ); ?></code>
 						<?php if ( ! $adapter_ok ) : ?>
-							<p class="description" style="color:#b32d2e;">
+							<p class="description hlb-mcp-error-text">
 								<?php esc_html_e( 'The MCP Adapter plugin is not active, so this endpoint is not live yet.', 'hlb-mcp-abilities' ); ?>
 							</p>
 						<?php endif; ?>
@@ -359,6 +495,9 @@ class Admin {
 	/**
 	 * Show a "settings saved" notice when redirected back with the flag.
 	 *
+	 * Used by the network page only — the per-site page uses settings_errors()
+	 * via the Settings API save path.
+	 *
 	 * @return void
 	 */
 	private function maybe_updated_notice() {
@@ -391,30 +530,25 @@ class Admin {
 	}
 
 	/**
-	 * Persist per-site settings.
+	 * Sanitize callback for the `hlb_mcp_site` Settings API option.
 	 *
-	 * @return void
+	 * Must tolerate a non-array/absent value: on multisite, saving while "inherit"
+	 * is checked leaves every field disabled, so nothing posts and options.php calls
+	 * this with null. That correctly resolves to override=false, enabled=[].
+	 *
+	 * @param mixed $value Raw value from $_POST (already unslashed by options.php).
+	 * @return array{override:bool,enabled:string[]}
 	 */
-	public function handle_save_site() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Permission denied.', 'hlb-mcp-abilities' ) );
-		}
-		check_admin_referer( self::NONCE_SITE );
+	public function sanitize_site_option( $value ) {
+		$value    = is_array( $value ) ? $value : [];
+		$override = ! empty( $value['override'] );
+		$raw_ids  = isset( $value['enabled'] ) ? array_map( 'sanitize_text_field', (array) $value['enabled'] ) : [];
 
-		$override = ! empty( $_POST['override'] );
-		// On single site, override is implicit (there is no network layer).
-		if ( ! is_multisite() ) {
-			$override = true;
-		}
-		$ids = $this->posted_ability_ids();
-
-		$this->settings->save_site( $override, $ids );
-
-		$this->redirect_back( admin_url( 'options-general.php?page=' . self::MENU_SLUG ) );
+		return $this->settings->sanitize_site_config( $override, $raw_ids );
 	}
 
 	/**
-	 * Read and sanitize the posted ability id list.
+	 * Read and sanitize the posted ability id list (network save path).
 	 *
 	 * @return string[]
 	 */

@@ -160,6 +160,26 @@ class Settings {
 	}
 
 	/**
+	 * Build the sanitized per-site config array without persisting it.
+	 *
+	 * Pure — used by the Settings API sanitize_callback in Admin, which returns a
+	 * value for WordPress to persist itself rather than writing the option directly.
+	 *
+	 * @param bool     $override Whether this site overrides network defaults.
+	 * @param string[] $ids      Candidate ability ids.
+	 * @return array{override:bool,enabled:string[]}
+	 */
+	public function sanitize_site_config( $override, array $ids ) {
+		if ( ! is_multisite() ) {
+			$override = true;
+		}
+		return [
+			'override' => (bool) $override,
+			'enabled'  => $this->sanitize_ids( $ids ),
+		];
+	}
+
+	/**
 	 * Seed the network default once, without clobbering an existing value.
 	 *
 	 * @return void
